@@ -1,30 +1,52 @@
-public static JSONObject safeGetJSONObjectFromMultipleKeySingleValue(JSONArray jArr,
-                                                                         String key,
-                                                                         String value) throws Exception
+private static void getJSONByPath(String path,JSONObject obj, List<Object> list) throws JSONException  
     {
-        JSONObject jObj = null;
-        try
+        
+        if(path != null)
         {
-            if (jArr != null & key != null & value != null)
+            if(!path.contains("."))
             {
-                for (int i = 0; i < jArr.length(); i++)
+                if(obj.has(path) && obj.get(path) != null)
                 {
-                    JSONObject jObjTemp = (JSONObject) jArr.getJSONObject(i);
-
-                    String valueTemp = null;
-                    valueTemp = (String) JSONUtils.safeGetJSONObject(key, jObjTemp);
-
-                    if (jObjTemp != null && !jObjTemp.isNull(key) && valueTemp.equals(value))
+                    Object retObj = JSONUtils.safeGetJSONObject(path, obj);
+                    if(retObj != null)
                     {
-                        jObj = jObjTemp;
-                        break;
+                        if(retObj instanceof JSONArray)
+                        {
+                        	list.add(new JSONArray(retObj.toString()));
+                        }
+                        else if(retObj instanceof JSONObject)
+                        {
+                            list.add(new JSONObject(retObj.toString()));
+                        }
+                        else
+                        {
+                            list.add(new String(retObj.toString()));
+                        } 
+                    }
+                    
+                }
+            }
+            else
+            {
+                String node = path.split("\\.")[0];
+                if(obj.has(node) && !obj.isNull(node))
+                {
+                    Object newNode = obj.get(node);
+                    if(newNode instanceof JSONObject)
+                    {
+                        JSONObject jObj = (JSONObject) newNode;
+                        getJSONByPath(path.substring(path.indexOf(".")+1), jObj,list);
+                    }
+                    else if(newNode instanceof JSONArray)
+                    {
+                        JSONArray jArr = (JSONArray)newNode;
+                        for(int i=0;i<jArr.length();i++)
+                        {
+                            JSONObject jObj = jArr.getJSONObject(i);
+                            getJSONByPath(path.substring(path.indexOf(".")+1), jObj,list);
+                        }
                     }
                 }
             }
         }
-        catch (Exception e)
-        {
-            throw e;
-        }
-        return jObj;
     }
