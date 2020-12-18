@@ -1,23 +1,13 @@
-@SuppressWarnings("rawtypes")
-    public static HashMap<String, String> getHashMapFromJSONObject(JSONObject object) throws Exception
+public static List<String> getJSONArrayAsList(JSONArray jArray) throws Exception
     {
-        HashMap<String, String> toRet = null;
-        try
+        List<String> toRet = null;
+        if (jArray != null)
         {
-            if (object != null && object.length() > 0)
+            toRet = new ArrayList<String>();
+            for (int i = 0; i < jArray.length(); i++)
             {
-                toRet = new HashMap<String, String>();
-                Iterator jsonKeys = object.keys();
-                while (jsonKeys.hasNext())
-                {
-                    String key = (String) jsonKeys.next();
-                    toRet.put(key, object.getString(key));
-                }
+                toRet.add(jArray.getString(i));
             }
-        }
-        catch (Exception e)
-        {
-            throw e;
         }
         return toRet;
     }
