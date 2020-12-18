@@ -1,13 +1,30 @@
-public static List<String> getJSONArrayAsList(JSONArray jArray) throws Exception
+public static JSONObject safeGetJSONObjectFromMultipleKeySingleValue(JSONArray jArr,
+                                                                         String key,
+                                                                         String value) throws Exception
     {
-        List<String> toRet = null;
-        if (jArray != null)
+        JSONObject jObj = null;
+        try
         {
-            toRet = new ArrayList<String>();
-            for (int i = 0; i < jArray.length(); i++)
+            if (jArr != null & key != null & value != null)
             {
-                toRet.add(jArray.getString(i));
+                for (int i = 0; i < jArr.length(); i++)
+                {
+                    JSONObject jObjTemp = (JSONObject) jArr.getJSONObject(i);
+
+                    String valueTemp = null;
+                    valueTemp = (String) JSONUtils.safeGetJSONObject(key, jObjTemp);
+
+                    if (jObjTemp != null && !jObjTemp.isNull(key) && valueTemp.equals(value))
+                    {
+                        jObj = jObjTemp;
+                        break;
+                    }
+                }
             }
         }
-        return toRet;
+        catch (Exception e)
+        {
+            throw e;
+        }
+        return jObj;
     }
