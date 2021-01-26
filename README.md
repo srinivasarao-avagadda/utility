@@ -1,52 +1,57 @@
-private static void getJSONByPath(String path,JSONObject obj, List<Object> list) throws JSONException  
+public static Date getDate(String pattern, String dateStr) throws ServerException
     {
-        
-        if(path != null)
+        Date toRet = null;
+
+        try
         {
-            if(!path.contains("."))
+            SimpleDateFormat sdf = new SimpleDateFormat(pattern);
+            toRet = sdf.parse(dateStr);
+        }
+        catch (Exception e)
+        {
+            if (e instanceof ServerException)
             {
-                if(obj.has(path) && obj.get(path) != null)
-                {
-                    Object retObj = JSONUtils.safeGetJSONObject(path, obj);
-                    if(retObj != null)
-                    {
-                        if(retObj instanceof JSONArray)
-                        {
-                        	list.add(new JSONArray(retObj.toString()));
-                        }
-                        else if(retObj instanceof JSONObject)
-                        {
-                            list.add(new JSONObject(retObj.toString()));
-                        }
-                        else
-                        {
-                            list.add(new String(retObj.toString()));
-                        } 
-                    }
-                    
-                }
+                throw (ServerException) e;
             }
             else
             {
-                String node = path.split("\\.")[0];
-                if(obj.has(node) && !obj.isNull(node))
-                {
-                    Object newNode = obj.get(node);
-                    if(newNode instanceof JSONObject)
-                    {
-                        JSONObject jObj = (JSONObject) newNode;
-                        getJSONByPath(path.substring(path.indexOf(".")+1), jObj,list);
-                    }
-                    else if(newNode instanceof JSONArray)
-                    {
-                        JSONArray jArr = (JSONArray)newNode;
-                        for(int i=0;i<jArr.length();i++)
-                        {
-                            JSONObject jObj = jArr.getJSONObject(i);
-                            getJSONByPath(path.substring(path.indexOf(".")+1), jObj,list);
-                        }
-                    }
-                }
+                throw new ServerException(e);
             }
         }
+        return toRet;
+    }
+    
+    public static long getDateMillies(String pattern, String dateStr, long defaultValue) throws ServerException
+    {
+        long toRet = defaultValue;
+        if(dateStr != null)
+        {
+            Date date = getDate(pattern, dateStr);
+            toRet = (date!= null ? date.getTime() : defaultValue);
+        }
+        return toRet;
+    }
+    
+    public static boolean validateDate(String format, String value)
+    {
+        boolean toRet = false;
+        Date date = null;
+        try
+        {
+            SimpleDateFormat sdf = new SimpleDateFormat(format);
+            date = sdf.parse(value);
+            if (!value.equals(sdf.format(date)))
+            {
+                date = null;
+            }
+        }
+        catch (ParseException ex)
+        {
+            logger.error(STRING_AN_ERROR_HAS_OCCURRED);
+        }
+        if (date != null)
+        {
+            toRet = true;
+        }
+        return toRet;
     }
