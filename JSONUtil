@@ -1,0 +1,851 @@
+package com.test;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class JSONUtils
+{
+    static Logger logger = LoggerFactory.getLogger(JSONUtils.class);
+    public static Pattern PARAM_PATTERN = Pattern.compile("\\{\\@([^\\}]+)\\}", Pattern.DOTALL);
+    
+    public static JSONArray getArrayFromObjectOrArray(Object obj)
+    {
+        JSONArray ja = new JSONArray();
+
+        if (obj != null)
+        {
+            if (obj instanceof JSONArray)
+            {
+                ja = (JSONArray) obj;
+            }
+            else
+            {
+                ja = new JSONArray();
+                ja.put((JSONObject) obj);
+            }
+        }
+        return ja;
+    }
+
+    public static JSONArray getArrayFromStringArray(String[] strArray)
+    {
+        JSONArray ja = new JSONArray();
+
+        if (strArray != null)
+        {
+            for (int i = 0; i < strArray.length; i++)
+            {
+                ja.put(strArray[i]);
+            }
+        }
+        return ja;
+    }
+
+    public static JSONObject getJSONObjectFromMap(HashMap<String, String> map,
+                                                  boolean valueAsKey) throws Exception
+    {
+        JSONObject toRet = null;
+        if (map != null)
+        {
+            toRet = new JSONObject();
+            Iterator<String> iter = map.keySet().iterator();
+            while (iter.hasNext())
+            {
+                String key = iter.next();
+                String value = map.get(key);
+                if (valueAsKey)
+                {
+                    toRet.put(value, key);
+                }
+                else
+                {
+                    toRet.put(key, value);
+                }
+            }
+        }
+        return toRet;
+    }
+
+    public static JSONArray safeGetJSONArray(String keyVal, JSONObject jObj) throws Exception
+    {
+        JSONArray jArr = new JSONArray();
+        try
+        {
+            if (jObj != null && !jObj.isNull(keyVal))
+            {
+                jArr = jObj.getJSONArray(keyVal);
+            }
+        }
+        catch (Throwable e)
+        {
+            logger.error("getSafe JSONArray Error: " + e.toString(), e);
+            throw new Exception(e);
+        }
+        return jArr;
+    }
+
+    public static Object safeGetJSONObject(String path, JSONObject jObj)
+    {
+        Object retVal = new JSONObject();
+        try
+        {
+            JSONObject jTemp = jObj;
+
+            if (jObj != null)
+            {
+                String[] propPath = path.split("\\."); // split takes a regex, so to demarcate using period, you have to escape it
+
+                if (propPath.length > 0)
+                {
+                    int i;
+                    for (i = 0; i < propPath.length - 1; i++)
+                    {
+                        if (jTemp != null)
+                        {
+                            Object jTempObj = jTemp.opt(propPath[i]);
+                            if (!(JSONObject.NULL).equals(jTempObj))
+                            {
+                                if (jTempObj instanceof JSONArray && propPath.length > i)
+                                {
+                                    int indexPos = ReadUtil.getInt(propPath[i + 1], 0);
+                                    if (indexPos >= 0)
+                                    {
+                                        Object tmpObj = ((JSONArray) jTempObj).get(indexPos);
+                                        if (tmpObj instanceof String)
+                                        {
+                                            jTemp = new JSONObject((String) tmpObj);
+                                        }
+                                        else
+                                        {
+                                            jTemp = (JSONObject) tmpObj;
+                                        }
+                                    }
+                                    i += 1;
+                                }
+                                else
+                                {
+                                    jTemp = (JSONObject) jTempObj;
+                                }
+                            }
+                            else
+                            {
+                                jTemp = null;
+                            }
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+
+                    if (jTemp != null)
+                    {
+                        if (i == propPath.length)
+                        {
+                            retVal = jTemp;
+                        }
+                        else
+                        {
+                            retVal = jTemp.opt(propPath[propPath.length - 1]);
+                        }
+                    }
+                }
+                else 
+                {
+                    System.out.println("Got bogus call for " + path);
+                }
+            }
+        }
+        catch (JSONException t)
+        {
+            //do nothing
+        }
+
+        return retVal;
+    }
+
+    public static String safeGetJSONProperty(String path, JSONObject jObj)
+    {
+        Object toRet = safeGetJSONObject(path, jObj);
+        return toRet != null ? toRet.toString() : null;
+    }
+
+    
+    
+    public static String adjustURL(String value, String baseUlr)
+    {
+        if (value != null && !"".equals(value) && !value.startsWith("http"))
+        {
+            value = baseUlr + (value.startsWith("/") ? value : ("/" + value));
+        }
+        return value;
+    }
+
+    public static String safeGetStringValue(JSONObject json,
+                                            String key,
+                                            String defaultValue)
+    {
+        String retVal = defaultValue;
+        if (json != null && !json.isNull(key))
+        {
+            try
+            {
+                retVal = (String) json.get(key);
+            }
+            catch (JSONException je)
+            {
+                // if the key is missing, we get this, so ignore
+            }
+        }
+
+        return retVal;
+    }
+
+    public static boolean safeGetBooleanValue(JSONObject json,
+                                              String key,
+                                              boolean defaultValue)
+    {
+        boolean retVal = defaultValue;
+        if (json != null)
+        {
+            try
+            {
+                retVal = json.getBoolean(key);
+            }
+            catch (JSONException je)
+            {
+                // if the key is missing, we get this, so ignore
+            }
+        }
+
+        return retVal;
+
+    }
+
+    public static int safeGetIntValue(JSONObject json,
+                                      String key,
+                                      int defaultValue)
+    {
+        int retVal = defaultValue;
+        if (json != null)
+        {
+            try
+            {
+                retVal = json.getInt(key);
+            }
+            catch (JSONException je)
+            {
+                // if the key is missing, we get this, so ignore
+            }
+        }
+
+        return retVal;
+
+    }
+
+    public static long safeGetLongValue(JSONObject json,
+                                        String key,
+                                        long defaultValue)
+    {
+        long retVal = defaultValue;
+        if (json != null)
+        {
+            try
+            {
+                retVal = json.getLong(key);
+            }
+            catch (JSONException je)
+            {
+                // if the key is missing, we get this, so ignore
+            }
+        }
+        return retVal;
+
+    }
+
+    
+    
+    public static float safeGetFloatValue(JSONObject json,
+                                          String key,
+                                          float defaultValue)
+    {
+        float retVal = defaultValue;
+        if (json != null)
+        {
+            try
+            {
+                retVal = (float) json.getDouble(key);
+            }
+            catch (JSONException je)
+            {
+                // if the key is missing, we get this, so ignore
+            }
+        }
+        return retVal;
+
+    }
+
+    public static JSONObject getJSONObjectFromByteArray(byte[] bytes) throws Exception
+    {
+        return new JSONObject(new String(bytes, "UTF-8"));
+    }
+
+    public static JSONObject getJSONObjectFromString(String strVal,
+                                                     JSONObject defaultValue)
+    {
+        JSONObject jObj = defaultValue;
+        if (strVal != null)
+        {
+            try
+            {
+                jObj = new JSONObject(strVal);
+            }
+            catch (Throwable e)
+            {}
+        }
+        return jObj;
+    }
+
+    
+    
+    public static Object removePropertyByPath(String path, JSONObject jObject) throws Throwable
+    {
+        Object retVal = new JSONObject();
+        JSONObject jTemp = jObject;
+
+        if (jObject != null)
+        {
+            String[] propPath = path.split("\\."); // split takes a regex, so to demarcate using period, you have to escape it
+
+            if (propPath.length > 0)
+            {
+                for (int i = 0; i < propPath.length - 1; i++)
+                {
+                    if (jTemp != null)
+                    {
+                        Object jTempObj = jTemp.opt(propPath[i]);
+                        if (!(JSONObject.NULL).equals(jTempObj))
+                        {
+                            jTemp = (JSONObject) jTempObj;
+                        }
+                        else
+                        {
+                            jTemp = null;
+                        }
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                if (jTemp != null)
+                {
+                    retVal = jTemp.remove(propPath[propPath.length - 1]);
+                }
+            }
+            else
+            {
+                System.out.println("Got bogus call for " + path);
+            }
+        }
+
+        return retVal;
+
+    }
+
+    public static List<String> getJSONArrayAsList(JSONArray jArray) throws Exception
+    {
+        List<String> toRet = null;
+        if (jArray != null)
+        {
+            toRet = new ArrayList<String>();
+            for (int i = 0; i < jArray.length(); i++)
+            {
+                toRet.add(jArray.getString(i));
+            }
+        }
+        return toRet;
+    }
+
+    public static JSONArray getListAsJSONArray(List<String> arrayList) throws Exception
+    {
+        JSONArray toRet = null;
+        if (arrayList != null)
+        {
+            toRet = new JSONArray();
+            Iterator<String> listIterator = arrayList.iterator();
+            while (listIterator.hasNext())
+            {
+                toRet.put(listIterator.next());
+            }
+        }
+        return toRet;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static Map<String, List<String>> getJSONObjectAsMapWithValueList(JSONObject json) throws Exception
+    {
+        Map<String, List<String>> toRet = null;
+        if (json != null)
+        {
+            toRet = new HashMap<String, List<String>>();
+            Iterator<String> keyIterator = (Iterator<String>) json.keys();
+            while (keyIterator.hasNext())
+            {
+                String key = keyIterator.next();
+                toRet.put(key, getJSONArrayAsList(json.getJSONArray(key)));
+            }
+        }
+        return toRet;
+    }
+
+    public static JSONObject getMapWithValueListAsJSONObject(Map<String, List<String>> map) throws Exception
+    {
+        JSONObject toRet = null;
+        if (map != null)
+        {
+            toRet = new JSONObject();
+            Iterator<String> keyIterator = map.keySet().iterator();
+            while (keyIterator.hasNext())
+            {
+                String key = keyIterator.next();
+                toRet.put(key, getListAsJSONArray(map.get(key)));
+            }
+        }
+        return toRet;
+    }
+
+    @SuppressWarnings("rawtypes")
+    public static HashMap<String, String> getHashMapFromJSONObject(JSONObject object) throws ServerException
+    {
+        HashMap<String, String> toRet = null;
+        try
+        {
+            if (object != null && object.length() > 0)
+            {
+                toRet = new HashMap<String, String>();
+                Iterator jsonKeys = object.keys();
+                while (jsonKeys.hasNext())
+                {
+                    String key = (String) jsonKeys.next();
+                    toRet.put(key, object.getString(key));
+                }
+            }
+        }
+        catch (Throwable t)
+        {
+            if (t instanceof ServerException)
+            {
+                throw (ServerException) t;
+            }
+            else
+            {
+                throw new ServerException(t);
+            }
+        }
+        return toRet;
+    }
+
+    public static JSONObject getJSONObjectFromHashMap(HashMap<String, String> object) throws ServerException
+    {
+        JSONObject toRet = new JSONObject();
+        try
+        {
+            if (object != null && object.size() > 0)
+            {
+                Iterator<Map.Entry<String, String>> keyIterator = object.entrySet().iterator();
+                while (keyIterator.hasNext())
+                {
+                    Map.Entry<String, String> entry = keyIterator.next();
+                    String key = entry.getKey();
+                    String value = entry.getValue();
+                    toRet.put(key, value);
+                }
+            }
+        }
+        catch (Throwable t)
+        {
+            if (t instanceof ServerException)
+            {
+                throw (ServerException) t;
+            }
+            else
+            {
+                throw new ServerException(t);
+            }
+        }
+        return toRet;
+    }
+
+    public static ArrayList<String> toArrayList(JSONArray array) throws ServerException
+    {
+        ArrayList<String> toRet = null;
+        try
+        {
+            if (array != null)
+            {
+                toRet = new ArrayList<String>();
+                for (int i = 0; i < array.length(); i++)
+                {
+                    toRet.add(array.get(i).toString());
+                }
+            }
+        }
+        catch (Throwable e)
+        {
+            if (e instanceof ServerException)
+            {
+                throw (ServerException) e;
+            }
+            else
+            {
+                throw new ServerException(e);
+            }
+        }
+        return toRet;
+    }
+
+    public static JSONObject safeGetJSONObjectFromMultipleKeySingleValue(JSONArray jArr,
+                                                                         String key,
+                                                                         String value) throws ServerException
+    {
+        JSONObject jObj = null;
+        try
+        {
+            if (jArr != null & key != null & value != null)
+            {
+                for (int i = 0; i < jArr.length(); i++)
+                {
+                    JSONObject jObjTemp = (JSONObject) jArr.getJSONObject(i);
+
+                    String valueTemp = null;
+                    valueTemp = (String) JSONUtils.safeGetJSONObject(key, jObjTemp);
+
+                    if (jObjTemp != null && !jObjTemp.isNull(key) && valueTemp.equals(value))
+                    {
+                        jObj = jObjTemp;
+                        break;
+                    }
+                }
+            }
+        }
+        catch (Throwable e)
+        {
+            if (e instanceof ServerException)
+            {
+                throw (ServerException) e;
+            }
+            else
+            {
+                throw new ServerException(e);
+            }
+        }
+        return jObj;
+    }
+
+    public static JSONArray merge(JSONArray srcItem,
+                                  String srcKey,
+                                  JSONArray mergeItem,
+                                  String mergeKey,
+                                  String mergeTo) throws ServerException
+    {
+        JSONArray toRet = srcItem;
+        try
+        {
+            if (srcItem != null && srcItem.length() > 0 && mergeItem != null && mergeItem.length() > 0)
+            {
+                toRet = new JSONArray();
+                for (int i = 0; i < srcItem.length(); i++)
+                {
+                    JSONObject stcItemData = srcItem.getJSONObject(i);
+                    String srcItemKey = safeGetStringValue(stcItemData, srcKey, null);
+                    if (srcItemKey != null)
+                    {
+                        boolean found = false;
+                        for (int j = 0; j < mergeItem.length(); j++)
+                        {
+                            JSONObject mergeItemData = mergeItem.getJSONObject(j);
+                            String mergeItemKey = safeGetStringValue(mergeItemData, mergeKey, null);
+                            if (srcItemKey.equals(mergeItemKey))
+                            {
+                                found = true;
+                                toRet.put(merge(stcItemData, mergeItemData, mergeTo));
+                                break;
+                            }
+                        }
+                        if(!found)
+                        {
+                            toRet.put(stcItemData);
+                        }
+                    }
+                }
+            }
+        }
+        catch (Throwable e)
+        {
+            if (e instanceof ServerException)
+            {
+                throw (ServerException) e;
+            }
+            else
+            {
+                throw new ServerException(e);
+            }
+        }
+        return toRet;
+    }
+
+    public static JSONObject merge(JSONObject stcItemData, JSONObject mergeItemData, String mergeTo)throws ServerException
+    {
+        JSONObject toRet = stcItemData;
+        try
+        {
+            if (mergeItemData != null)
+            {
+                JSONObject mergeToObj = null;
+                if(mergeTo != null)
+                {
+                    String[] propPath = mergeTo.split("\\."); // split takes a regex, so to demarcate using period, you have to escape it
+                    if (propPath.length > 0)
+                    {
+                        JSONObject data = toRet;
+                        for(int i=0;i<propPath.length; i++)
+                        {
+                            JSONObject obj = (JSONObject) safeGetJSONObject(propPath[i], data);
+                            if(obj == null)
+                            {
+                                obj = new JSONObject();
+                                data.put(propPath[i], obj);
+                            }
+                            data = obj;
+                        }
+                        mergeToObj = data;
+                    }
+                }
+                else
+                {
+                    mergeToObj = toRet;
+                }
+                @SuppressWarnings("rawtypes") Iterator keys = mergeItemData.keys();
+                while(keys.hasNext())
+                {
+                    String key = (String) keys.next();
+                    mergeToObj.put(key, mergeItemData.get(key));
+                }
+                if(mergeTo != null)
+                {
+                    String[] propPath = mergeTo.split("\\."); // split takes a regex, so to demarcate using period, you have to escape it
+                    if (propPath.length > 0)
+                    {
+                        JSONObject data = toRet;
+                        for(int i=0;i<propPath.length-1; i++)
+                        {
+                            JSONObject obj = (JSONObject) safeGetJSONObject(propPath[i], data);
+                            if(obj == null)
+                            {
+                                obj = new JSONObject();
+                                data.put(propPath[i], obj);
+                            }
+                            data = obj;
+                        }
+                        data.put(propPath[propPath.length-1], mergeToObj);
+                    }
+                }
+                else
+                {
+                    toRet = mergeToObj;
+                }
+            }
+        }
+        catch (Throwable e)
+        {
+            if (e instanceof ServerException)
+            {
+                throw (ServerException) e;
+            }
+            else
+            {
+                throw new ServerException(e);
+            }
+        }
+        return toRet;
+    }
+
+    public static void concatJSONArray(JSONArray targetArr, JSONArray dataArr)throws ServerException
+    {
+        if(targetArr == null)
+        {
+            targetArr = new JSONArray();
+        }
+
+        try
+        {
+            if(dataArr != null && dataArr.length() > 0)
+            {
+                for(int idx = 0; idx < dataArr.length(); idx++)
+                {
+                    targetArr.put(dataArr.getJSONObject(idx));
+                }
+            }
+        }
+        catch (Throwable e)
+        {
+            if (e instanceof ServerException)
+            {
+                throw (ServerException) e;
+            }
+            else
+            {
+                throw new ServerException(e);
+            }
+        }
+    }
+    
+    // The Return value will be of type JSONArray, JSONObject, String - Check and TypeCast before you use  
+    public static Object getJSONByPath(String path,JSONObject obj) throws JSONException
+    {
+        List<Object> list = new ArrayList<Object>();
+        getJSONByPath(path, obj, list);
+        if(list.size() != 0)
+        {
+            if(list.size() > 1)
+            {
+                JSONArray toRet = new JSONArray();
+                for(int i=0;i<list.size();i++)
+                {
+                    if(list.get(i) instanceof String)
+                    {
+                        toRet.put(list.get(i));
+                    }                   
+                }
+                if(toRet.length() > 0)
+                {
+                   return toRet;
+                }
+            }
+            else
+            {
+                return list.get(0);
+            }
+        }
+        return null;
+        
+    }
+    private static void getJSONByPath(String path,JSONObject obj, List<Object> list) throws JSONException  
+    {
+        
+        if(path != null)
+        {
+            if(!path.contains("."))
+            {
+                if(obj.has(path) && obj.get(path) != null)
+                {
+                    Object retObj = JSONUtils.safeGetJSONObject(path, obj);
+                    if(retObj != null)
+                    {
+                        if(retObj instanceof JSONArray)
+                        {
+                            list.add(new JSONArray(retObj.toString()));
+                        }
+                        else if(retObj instanceof JSONObject)
+                        {
+                            list.add(new JSONObject(retObj.toString()));
+                        }
+                        else
+                        {
+                            list.add(new String(retObj.toString()));
+                        } 
+                    }
+                    
+                }
+            }
+            else
+            {
+                String node = path.split("\\.")[0];
+                if(obj.has(node) && !obj.isNull(node))
+                {
+                    Object newNode = obj.get(node);
+                    if(newNode instanceof JSONObject)
+                    {
+                        JSONObject jObj = (JSONObject) newNode;
+                        getJSONByPath(path.substring(path.indexOf(".")+1), jObj,list);
+                    }
+                    else if(newNode instanceof JSONArray)
+                    {
+                        JSONArray jArr = (JSONArray)newNode;
+                        for(int i=0;i<jArr.length();i++)
+                        {
+                            JSONObject jObj = jArr.getJSONObject(i);
+                            getJSONByPath(path.substring(path.indexOf(".")+1), jObj,list);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    public static String processMacros(String strData, JSONObject data, HashMap<String, List<String>> additionalParams) throws ServerException
+    {
+        return processMacros(strData, data, additionalParams, PARAM_PATTERN);
+    }
+
+    public static String processMacros(String strData, JSONObject data, HashMap<String, List<String>> additionalParams, Pattern pattern) throws ServerException
+    {
+        if (strData != null)
+        {
+            StringBuffer sb = new StringBuffer();
+            Matcher m = pattern.matcher(strData);
+            while(m.find())
+            {
+                m.appendReplacement(sb, Matcher.quoteReplacement(replaceMacro(m.group(1), data, additionalParams)));
+            }
+            m.appendTail(sb);
+            strData = sb.toString();
+        }
+        return strData;
+    }
+    
+    public static String replaceMacro(String key, JSONObject data, HashMap<String, List<String>> inputParams) throws ServerException
+    {
+        String val = new String();
+        try
+        {
+            if (data != null && data.has(key))
+            {
+                val = data.getString(key);
+            }
+            else if(inputParams != null && inputParams.containsKey(key))
+            {
+                List<String> paramsList = inputParams.get(key);
+                if(paramsList != null && paramsList.size() == 1)
+                {
+                    val = paramsList.get(0);
+                }
+            }
+        }
+        catch(Throwable t)
+        {
+            if (t instanceof ServerException)
+            {
+                throw (ServerException) t;
+            }
+            else
+            {
+                throw new ServerException(t);
+            }
+        }
+        return val;
+    }
+}
