@@ -848,4 +848,18 @@ public class JSONUtils
         }
         return val;
     }
+     public static int getInt(String strVal, int defaultValue)
+    {
+        int value = defaultValue;
+        if (strVal != null)
+        {
+            try
+            {
+                value = Integer.parseInt(strVal);
+            }
+            catch (Exception e)
+            {}
+        }
+        return value;
+    }
 }
